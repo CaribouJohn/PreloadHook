@@ -3,6 +3,7 @@
 #include <atomic>
 #include <dlfcn.h>
 #include <cinttypes>
+#include <mutex>
 
 //make this easy - typedefs make things clear
 typedef void* (*real_malloc_t)(size_t);
@@ -21,6 +22,9 @@ std::atomic<long long> allocated (0);
 std::atomic<long long> callocated (0);
 std::atomic<long long> rallocated (0);
 
+//init lock
+std::mutex init_lock;
+
 //TODO: need to add a way to record the deletions (hashmap or potentially simply write in another thread )
 std::atomic<long long> freed (0);
 
@@ -32,6 +36,7 @@ static FILE *memlog = 0;
 //helper functions 
 static void initialize_symbols()
 {
+    std::lock_guard<std::mutex> guard(init_lock);
     if (memlog)
         return;
     memlog = fdopen(200, "w");
@@ -78,6 +83,7 @@ void *malloc(size_t size)
     void *p;
     if (!real_malloc)
     {
+        initialize_symbols();
         if (!real_malloc)
             return NULL;
     }
@@ -92,6 +98,7 @@ void *calloc(size_t nmemb, size_t size)
     void *p;
     if (!real_calloc)
     {
+        initialize_symbols();
         if (!real_calloc)
             return NULL;
     }
@@ -104,6 +111,7 @@ void free(void *ptr)
 {
     if (!real_free)
     {
+        initialize_symbols();
         if (!real_free)
             return;
     }
@@ -116,6 +124,7 @@ void *realloc(void *ptr, size_t size)
     void *p;
     if (!real_realloc)
     {
+        initialize_symbols();
         if (!real_realloc)
             return NULL;
     }
