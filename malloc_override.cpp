@@ -20,6 +20,8 @@ static real_calloc_t real_calloc = 0;
 std::atomic<long long> allocated (0);
 std::atomic<long long> callocated (0);
 std::atomic<long long> rallocated (0);
+
+//TODO: need to add a way to record the deletions (hashmap or potentially simply write in another thread )
 std::atomic<long long> freed (0);
 
 static FILE *memlog = 0;
@@ -60,10 +62,10 @@ void
     if (memlog)
     {
         LOCK;
-        fprintf(memlog, "malloc %15" PRId64 " bytes\n", allocated.load());
-        fprintf(memlog, "calloc %" PRId64 " bytes\n", callocated.load());
-        fprintf(memlog, "realloc %" PRId64 " bytes\n", rallocated.load());
-        fprintf(memlog, "free %" PRId64 " bytes\n", freed.load());
+        fprintf(memlog, "malloc %16" PRId64 " bytes\n", allocated.load());
+        fprintf(memlog, "calloc %16" PRId64 " bytes\n", callocated.load());
+        fprintf(memlog, "realloc %15" PRId64 " bytes\n", rallocated.load());
+        //fprintf(memlog, "free %15" PRId64 " bytes\n", freed.load()); 
         UNLOCK;
     }
 }
