@@ -1,6 +1,6 @@
 IDIR =include
 CXX=g++
-CFLAGS=-I$(IDIR) -fPIC -D_GNU_SOURCE
+CFLAGS=-I$(IDIR) -std=c++11 -fPIC -D_GNU_SOURCE
 ODIR=obj
 LDIR =lib
 
