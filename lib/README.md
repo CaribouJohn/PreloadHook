@@ -1,0 +1,1 @@
+Usage: LD_PRELOAD=lib/apama_malloc.so <executable>
