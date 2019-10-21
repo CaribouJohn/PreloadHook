@@ -2,7 +2,7 @@
 #include <cstdlib>
 #include <atomic>
 #include <dlfcn.h>
-#include <inttypes.h>
+#include <cinttypes>
 
 //make this easy - typedefs make things clear
 typedef void* (*real_malloc_t)(size_t);
