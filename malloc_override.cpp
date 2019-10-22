@@ -33,17 +33,10 @@ static FILE *memlog = 0;
 //helper functions 
 static void initialize_symbols()
 {
+    if( init_flag ) return;
+
     //return is another thread initialises it,
     //otherwise grab the lock and initialise
-    do
-    {
-        if ( init_flag.load() )
-            return;
-    } while(std::atomic_flag_test_and_set_explicit(&lock, std::memory_order_acquire));
-
-    
-
-             ; // spin until the lock is acquired
     memlog = fdopen(200, "w");
     if (!memlog)
     {
@@ -51,11 +44,10 @@ static void initialize_symbols()
     }
     fprintf(memlog, "Setting symbols\n");
     real_malloc = reinterpret_cast<real_malloc_t>( dlsym(RTLD_NEXT, "malloc") );
-    real_calloc = reinterpret_cast<real_calloc_t>( dlsym(RTLD_NEXT, "calloc") );
+    //real_calloc = reinterpret_cast<real_calloc_t>( dlsym(RTLD_NEXT, "calloc") );
     real_free = reinterpret_cast<real_free_t>( dlsym(RTLD_NEXT, "free") );
     real_realloc = reinterpret_cast<real_realloc_t> (dlsym(RTLD_NEXT, "realloc") );
     init_flag = true;
-    std::atomic_flag_clear_explicit(&lock, std::memory_order_release);
 }
 
 
@@ -65,6 +57,7 @@ void
     __attribute__((constructor))
     _init(void)
 {
+    fprintf(stderr, "Loading shared object\n");
     initialize_symbols();
 }
 
@@ -72,6 +65,7 @@ void
     __attribute__((destructor))
     _dtor(void)
 {
+    fprintf(stderr, "unloading shared object\n");
     if (memlog)
     {
         fprintf(memlog, "malloc %16" PRId64 " bytes\n", allocated.load());
@@ -87,7 +81,7 @@ void
 void *malloc(size_t size)
 {
     void *p;
-    while(!init_flag.load())
+    if(!init_flag)
     {
         initialize_symbols();
         if (!real_malloc)
@@ -98,26 +92,24 @@ void *malloc(size_t size)
     return p;
 }
 
-//allocate and zero initialize
-void *calloc(size_t nmemb, size_t size)
-{
-    void *p;
-    while(!init_flag.load())
-    {
-        initialize_symbols();
-        if (!real_calloc)
-            return NULL;
-    }
-    p = real_calloc(nmemb, size);
-    callocated.fetch_add(size);
-    return p;
-}
+// //allocate and zero initialize
+// void *calloc(size_t nmemb, size_t size)
+// {
+//     void *p;
+//     if(!init_flag)
+//     {
+//         if (!real_calloc)
+//             return NULL;
+//     }
+//     p = real_calloc(nmemb, size);
+//     callocated.fetch_add(size);
+//     return p;
+// }
 
 void free(void *ptr)
 {
-    while(!init_flag.load())
+    if(init_flag)
     {
-        initialize_symbols();
         if (!real_free)
             return;
     }
@@ -128,9 +120,8 @@ void free(void *ptr)
 void *realloc(void *ptr, size_t size)
 {
     void *p;
-    while(!init_flag.load())
+    if(!init_flag)
     {
-        initialize_symbols();
         if (!real_realloc)
             return NULL;
     }
