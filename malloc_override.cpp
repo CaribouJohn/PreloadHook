@@ -3,6 +3,11 @@
 #include <atomic>
 #include <dlfcn.h>
 #include <cinttypes>
+#include <malloc.h>
+#include <cstdio>
+#include <cstring>
+#include <unistd.h>
+
 
 //make this easy - typedefs make things clear
 typedef void* (*real_malloc_t)(size_t);
@@ -16,39 +21,20 @@ static real_free_t real_free = 0;
 static real_realloc_t real_realloc = 0;
 static real_calloc_t real_calloc = 0;
 
+int reentrancy_guard;
+
+
+#define BEGIN_HOOK \
+        reentrancy_guard++;
+
+#define HOOK \
+    if (reentrancy_guard == 1)
+
+#define END_HOOK \
+        reentrancy_guard--;
+
 //allocated memory
 std::atomic<long long> allocated (0);
-std::atomic<long long> callocated (0);
-std::atomic<long long> rallocated (0);
-
-//init lock
-std::atomic<bool> init_flag(false);
-std::atomic_flag lock = ATOMIC_FLAG_INIT;
-
-//TODO: need to add a way to record the deletions (hashmap or potentially simply write in another thread )
-std::atomic<long long> freed (0);
-
-static FILE *memlog = 0;
-
-//helper functions 
-static void initialize_symbols()
-{
-    if( init_flag ) return;
-
-    //return is another thread initialises it,
-    //otherwise grab the lock and initialise
-    memlog = fdopen(200, "w");
-    if (!memlog)
-    {
-        memlog = stderr;
-    }
-    fprintf(memlog, "Setting symbols\n");
-    real_malloc = reinterpret_cast<real_malloc_t>( dlsym(RTLD_NEXT, "malloc") );
-    //real_calloc = reinterpret_cast<real_calloc_t>( dlsym(RTLD_NEXT, "calloc") );
-    real_free = reinterpret_cast<real_free_t>( dlsym(RTLD_NEXT, "free") );
-    real_realloc = reinterpret_cast<real_realloc_t> (dlsym(RTLD_NEXT, "realloc") );
-    init_flag = true;
-}
 
 
 //runs when shared lib is loaded
@@ -57,22 +43,20 @@ void
     __attribute__((constructor))
     _init(void)
 {
-    fprintf(stderr, "Loading shared object\n");
-    initialize_symbols();
+    fprintf(stderr, "Loading apama malloc override\n");
 }
 
 void
     __attribute__((destructor))
     _dtor(void)
 {
-    fprintf(stderr, "unloading shared object\n");
-    if (memlog)
-    {
-        fprintf(memlog, "malloc %16" PRId64 " bytes\n", allocated.load());
-        fprintf(memlog, "calloc %16" PRId64 " bytes\n", callocated.load());
-        fprintf(memlog, "realloc %15" PRId64 " bytes\n", rallocated.load());
-        //fprintf(memlog, "free %15" PRId64 " bytes\n", freed.load()); 
-    }
+    fprintf(stderr, "unloading apama malloc override\n");
+}
+
+void outputLine() {
+    char buffer[512];
+    sprintf(buffer, "%" PRId64 "\n", allocated.load());
+    write(STDERR_FILENO,buffer,strlen(buffer));
 }
 
 //define the actual overrides for the methods we want
@@ -81,51 +65,59 @@ void
 void *malloc(size_t size)
 {
     void *p;
-    if(!init_flag)
-    {
-        initialize_symbols();
-        if (!real_malloc)
-            return NULL;
-    }
+    BEGIN_HOOK
+    HOOK
+        real_malloc = reinterpret_cast<real_malloc_t>( dlsym(RTLD_NEXT, "malloc") );
+
     p = real_malloc(size);
-    allocated.fetch_add(size);
+    size_t real_size = malloc_usable_size(p);
+    allocated.fetch_add(real_size);
+    outputLine();
+    END_HOOK
+
     return p;
 }
 
-// //allocate and zero initialize
-// void *calloc(size_t nmemb, size_t size)
-// {
-//     void *p;
-//     if(!init_flag)
-//     {
-//         if (!real_calloc)
-//             return NULL;
-//     }
-//     p = real_calloc(nmemb, size);
-//     callocated.fetch_add(size);
-//     return p;
-// }
+//allocate and zero initialize
+void *calloc(size_t nmemb, size_t size)
+{
+    void *p;
+    BEGIN_HOOK
+    HOOK
+        real_calloc = reinterpret_cast<real_calloc_t>( dlsym(RTLD_NEXT, "calloc") );
+    p = real_calloc(nmemb, size);
+    size_t real_size = malloc_usable_size(p);
+    allocated.fetch_add(real_size);
+    outputLine();
+    END_HOOK
+    return p;
+}
 
 void free(void *ptr)
 {
-    if(init_flag)
-    {
-        if (!real_free)
-            return;
-    }
+    BEGIN_HOOK
+    HOOK
+        real_free = reinterpret_cast<real_free_t>( dlsym(RTLD_NEXT, "free") );
+
+    size_t real_size = malloc_usable_size(ptr);
+    allocated.fetch_sub(real_size);
     real_free(ptr);
-    //freed.fetch_sub(sizeof(ptr));
+    outputLine();
+    END_HOOK
 }
 
 void *realloc(void *ptr, size_t size)
 {
     void *p;
-    if(!init_flag)
-    {
-        if (!real_realloc)
-            return NULL;
-    }
+    BEGIN_HOOK
+    HOOK
+        real_realloc = reinterpret_cast<real_realloc_t> (dlsym(RTLD_NEXT, "realloc") );
+    size_t real_prev_size = malloc_usable_size(ptr);
     p = real_realloc(ptr, size);
-    rallocated.fetch_add(size);
+    size_t real_size = malloc_usable_size(p);
+    allocated.fetch_sub(real_prev_size);
+    allocated.fetch_add(real_size);
+    outputLine();
+    END_HOOK
     return p;
 }
