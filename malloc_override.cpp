@@ -43,14 +43,14 @@ void
     __attribute__((constructor))
     _init(void)
 {
-    fprintf(stderr, "Loading apama malloc override\n");
+    fprintf(stderr, "Loading malloc_override\n");
 }
 
 void
     __attribute__((destructor))
     _dtor(void)
 {
-    fprintf(stderr, "unloading apama malloc override\n");
+    fprintf(stderr, "unloading malloc_override\n");
 }
 
 void outputLine() {

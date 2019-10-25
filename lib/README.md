@@ -1,1 +1,1 @@
-Usage: LD_PRELOAD=lib/apama_malloc.so <executable>
+Usage: LD_PRELOAD=lib/malloc_override.so <executable>
