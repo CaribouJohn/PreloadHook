@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import re
-#the following script is assessing memory usage and testing for leaks
+#the following script is assessing memory usage
 #run ltrace -tt -C -n 2 -x malloc+free+realloc+calloc+brk+sbrk+mmap+munmap -o apama.log correlator
 
 #open the log file and generate a table of allocations and deallocations.
