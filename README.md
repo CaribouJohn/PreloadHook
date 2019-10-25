@@ -24,7 +24,7 @@ Loading malloc override
 unloading malloc override
 ~~~
 
-These numbers may vary are the total allocated memory for the process that occurred through malloc, realloc and calloc...
+These numbers may vary are the total allocated memory (values may differ from the request as the functions can allocate larger chunks see *malloc_usable_size*) for the process. 
 
 N.B. there have been issues running this including recursion through the memory functions overridden that will cause segfaults... FWIW if your allication is relatively simple then I have found that it works well. However if you have a complex application that links many libraries your milage may vary - use at your own risk. 
 
@@ -50,7 +50,7 @@ sbrk,
 mmap,
 munmap
 
-Again milages might vary as the regexes were relatively complex and some entries cover multiple lines
+Again *milages might vary* as the regexes were relatively complex and some entries cover multiple lines
 
 produces a sequence of memory values as they changed through the log.
 

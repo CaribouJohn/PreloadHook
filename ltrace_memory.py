@@ -13,14 +13,18 @@ malloc_pat = re.compile(r'(\d\d:\d\d:\d\d\.\d+)\s+malloc.*\((\d+).*=\s+(.+)')
 malloc2_pat = re.compile(r'(\d\d:\d\d:\d\d\.\d+)\s+malloc.*\((\d+)\s+<unfinished')
 #14:10:36.130610       <... malloc resumed> )                                                                                                  = 0x4a4ad90
 malloc3_pat = re.compile(r'(\d\d:\d\d:\d\d\.\d+).+malloc.*resumed.*=\s(.+)')
+
 calloc_pat = re.compile(r'(\d\d:\d\d:\d\d\.\d+)\s+calloc.*\((\d+),\s+(\d+).*=\s+(.+)')
 realloc_pat = re.compile(r'(\d\d:\d\d:\d\d\.\d+)\s+realloc.*\(([^,]+),\s+(\d+).*=\s(.+)')
 sbrk_pat = re.compile(r'(\d\d:\d\d:\d\d\.\d+)\s+sbrk.+\((\d+)')
 
+#free
 free_pat = re.compile(r'(\d\d:\d\d:\d\d\.\d+)\s+free.*\((0x.+)\)')
+#looking for specific calls not from the library - not needed normally
 #16:03:50.364206   ObjectPool::freeVariableSize(void*)(0x4c881a0, 0x4c882b0,
 free2_pat = re.compile(r'(\d\d:\d\d:\d\d\.\d+).+freeVariableSize.*\((0x[^,]+),\s*(0x[^,]+)')
 
+#mmap & munmap
 mmap_pat = re.compile(r'(\d\d:\d\d:\d\d\.\d+)\s+mmap.*\((\d+),\s+0x(\d+).*=\s+(.+)')
 munmap_pat = re.compile(r'(\d\d:\d\d:\d\d\.\d+)\s+munmap.+\((0x[^,]+),\s*[0x]*(\d+)')
 
