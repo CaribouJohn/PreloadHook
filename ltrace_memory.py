@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 import re
 #the following script is assessing memory usage
-#run ltrace -tt -C -n 2 -x malloc+free+realloc+calloc+brk+sbrk+mmap+munmap -o apama.log correlator
+#run ltrace -tt -C -n 2 -x malloc+free+realloc+calloc+brk+sbrk+mmap+munmap -o malloc_override.log correlator
 
 #open the log file and generate a table of allocations and deallocations.
 
-mainlog = open( 'apama.log','r')
+mainlog = open( 'malloc_override.log','r')
 
 #libstdc++.so.6->malloc(36) 
 malloc_pat = re.compile(r'(\d\d:\d\d:\d\d\.\d+)\s+malloc.*\((\d+).*=\s+(.+)')
@@ -16,7 +16,11 @@ malloc3_pat = re.compile(r'(\d\d:\d\d:\d\d\.\d+).+malloc.*resumed.*=\s(.+)')
 calloc_pat = re.compile(r'(\d\d:\d\d:\d\d\.\d+)\s+calloc.*\((\d+),\s+(\d+).*=\s+(.+)')
 realloc_pat = re.compile(r'(\d\d:\d\d:\d\d\.\d+)\s+realloc.*\(([^,]+),\s+(\d+).*=\s(.+)')
 sbrk_pat = re.compile(r'(\d\d:\d\d:\d\d\.\d+)\s+sbrk.+\((\d+)')
+
 free_pat = re.compile(r'(\d\d:\d\d:\d\d\.\d+)\s+free.*\((0x.+)\)')
+#16:03:50.364206   ObjectPool::freeVariableSize(void*)(0x4c881a0, 0x4c882b0,
+free2_pat = re.compile(r'(\d\d:\d\d:\d\d\.\d+).+freeVariableSize.*\((0x[^,]+),\s*(0x[^,]+)')
+
 mmap_pat = re.compile(r'(\d\d:\d\d:\d\d\.\d+)\s+mmap.*\((\d+),\s+0x(\d+).*=\s+(.+)')
 munmap_pat = re.compile(r'(\d\d:\d\d:\d\d\.\d+)\s+munmap.+\((0x[^,]+),\s*[0x]*(\d+)')
 
@@ -95,10 +99,21 @@ for line in mainlog:
     matches = re.match(free_pat,line)
     if matches:
         if matches.groups()[1] not in memorydb : 
-            print( "cannot free {} check apama.log".format(matches.groups()[1]))
+            print( "cannot free {} check malloc_override.log".format(matches.groups()[1]))
             continue
         oldsize = memorydb.get(matches.groups()[1]) 
         memorydb[matches.groups()[1]] = 0
+        total_allocated -= oldsize
+        #print( "free : {} from {} ".format(oldsize,matches.groups()[1]))
+
+    matches = re.match(free2_pat,line)
+    if matches:
+        if matches.groups()[2] not in memorydb : 
+            #in this case we can have pooled addresses so ignore failures
+            #print( "cannot free {} check malloc_override.log".format(matches.groups()[1]))
+            continue
+        oldsize = memorydb.get(matches.groups()[2]) 
+        memorydb[matches.groups()[2]] = 0
         total_allocated -= oldsize
         #print( "free : {} from {} ".format(oldsize,matches.groups()[1]))
     
@@ -108,7 +123,19 @@ for line in mainlog:
 
 mainlog.close()
 
+print "--usage data--"
+
 print "seq,requested,sbrk,mmap"
 for key in sorted(results):
     print("{},{},{},{}".format(key,results[key][0],results[key][1],results[key][2]))
 
+print "--memory not freed (may not be a leak - check malloc_override.log for the address)--"
+
+leaked = 0
+for key in memorydb:
+    if memorydb[key] > 0:
+        print("{} not released {}".format(key,memorydb[key]))
+        leaked += memorydb[key]
+
+print "--Unaccounted for memory that got 'allocated'--"
+print ('total leaked = ' + str(leaked))

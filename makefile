@@ -16,13 +16,13 @@ TESTOBJ = $(patsubst %,$(ODIR)/%,$(_TOBJ))
 $(ODIR)/%.o: %.cpp #$(DEPS)
 	$(CXX) -c -o $@ $< $(CFLAGS)
 
-apama_malloc: $(SOOBJ)
+malloc_override: $(SOOBJ)
 	$(CXX) -shared -o $(LDIR)/$@.so $^ -ldl $(CFLAGS)
 
 test: $(TESTOBJ)
 	$(CXX) -o $@ $^ $(CFLAGS)
 
-all: test apama_malloc 
+all: test malloc_override 
 
 .PHONY: clean
 
