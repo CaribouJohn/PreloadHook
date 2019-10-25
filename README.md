@@ -1,6 +1,12 @@
 # Usage
 
-make all
+N.B. Linux only!
+
+To build:
+
+`make all`
+
+to run:
 
 `LD_PRELOAD=lib/malloc_override.so ./test`
 
@@ -18,11 +24,13 @@ Loading malloc override
 unloading malloc override
 ~~~
 
-These numbers are the total allocated memory for the process that occurred through malloc, realloc and calloc...
+These numbers may vary are the total allocated memory for the process that occurred through malloc, realloc and calloc...
 
 N.B. there have been issues running this including recursion through the memory functions overridden that will cause segfaults... FWIW if your allication is relatively simple then I have found that it works well. However if you have a complex application that links many libraries your milage may vary - use at your own risk. 
 
 # ltrace_memory.py 
+
+If ltrace is not installed you can use `apt-get install ltrace` to get it 
 
 This is a script that I wrote that can partially run through the output of ltrace and generate a similar curve 
 
